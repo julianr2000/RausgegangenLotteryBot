@@ -14,5 +14,6 @@ ACCOUNT_1_PASSWORD=
 ACCOUNT_2_EMAIL=
 ACCOUNT_2_PASSWORD=
 ```
+If more or less than 2 accounts, change in Python file.
 Then run raus-Login.py
 
