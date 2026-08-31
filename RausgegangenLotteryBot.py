@@ -15,7 +15,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(SCRIPT_DIR, ".env"))
 
 def setup_driver(headless=True):
-    """Optimiert für den vorinstallierten Chromium auf dem Raspberry Pi."""
+    """Optimiert für den vorinstallierten Chromium auf dem Raspberry Pi/Proxmox."""
     options = ChromeOptions()
     options.binary_location = "/usr/bin/chromium-browser"
     
@@ -27,7 +27,7 @@ def setup_driver(headless=True):
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("--blink-settings=imagesEnabled=false") # Spart RAM auf dem Pi
+    options.add_argument("--blink-settings=imagesEnabled=false") # Spart RAM auf dem Pi/Proxmox
 
     service = ChromeService(executable_path="/usr/bin/chromedriver")
     return webdriver.Chrome(service=service, options=options)
@@ -68,8 +68,8 @@ def login(driver, email, password):
         WebDriverWait(driver, 30).until(EC.url_to_be("https://rausgegangen.de/en/"))
         print(f"[{email}] Login erfolgreich.")
         return True
-    except Exception:
-        print(f"[{email}] Login fehlgeschlagen.")
+    except Exception as e:
+        print(f"[{email}] Login fehlgeschlagen: {e}")
         return False
 
 def handle_raffles(driver, email):
@@ -78,12 +78,19 @@ def handle_raffles(driver, email):
         url = f"https://rausgegangen.de/en/stuttgart/category/lottery/?page={page}"
         driver.get(url)
         try:
-            WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'div.tile-medium')))
+            # Wartet, bis die Event-Namen (das neue Layout) geladen sind
+            WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located((By.XPATH, '//*[@data-testid="event-tile-name"]')))
         except TimeoutException:
+            print(f"[{email}] Keine weiteren Events auf Seite {page} gefunden (Timeout).")
             break
 
-        tiles = driver.find_elements(By.CSS_SELECTOR, 'div.tile-medium a.event-tile')
-        event_urls = [tile.get_attribute('href') for tile in tiles]
+        # Sucht gezielt nur die Links, die auch das Lottery-Badge haben
+        lottery_links = driver.find_elements(By.XPATH, '//*[@data-testid="badge-lottery"]/ancestor::a')
+        event_urls = [link.get_attribute('href') for link in lottery_links]
+        
+        if not event_urls:
+            print(f"[{email}] Keine Verlosungen auf Seite {page} gefunden.")
+            break
 
         for event_url in event_urls:
             if not event_url: continue
@@ -96,23 +103,26 @@ def handle_raffles(driver, email):
                     WebDriverWait(driver, 3).until(
                         EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'You’re in 🤞')]"))
                     )
+                    print(f"     - [{email}] Bereits teilgenommen: {event_url}")
                     continue
                 except TimeoutException:
                     pass
 
-                # Teilnahme-Prozess
+                # Teilnahme-Prozess (neuer ID-Selektor für den WIN TICKETS Button)
                 win_tickets_button = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.XPATH, "//button/span[contains(text(), 'WIN TICKETS')]"))
+                    EC.presence_of_element_located((By.ID, 'participate_button'))
                 )
                 driver.execute_script("arguments[0].click();", win_tickets_button)
 
+                # Modal Bestätigung (neuer XPATH für den JETZT TEILNEHMEN Button)
                 count_me_in = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, '#lottery-participate-button'))
+                    EC.element_to_be_clickable((By.XPATH, '//button[@type="submit" and contains(@class, "da-btn-primary")]'))
                 )
                 count_me_in.click()
                 print(f"     - [{email}] Erfolg bei: {event_url}")
 
-            except Exception:
+            except Exception as e:
+                print(f"     - [{email}] Fehler bei {event_url}. Details: {e}")
                 continue
         page += 1
 
@@ -133,7 +143,7 @@ def main():
         {"email": os.getenv("ACCOUNT_1_EMAIL"), "password": os.getenv("ACCOUNT_1_PASSWORD")},
         {"email": os.getenv("ACCOUNT_2_EMAIL"), "password": os.getenv("ACCOUNT_2_PASSWORD")},
     ]
-    # Auf dem Pi nacheinander abarbeiten, um CPU/RAM zu schonen
+    # Nacheinander abarbeiten, um CPU/RAM zu schonen
     for account in accounts:
         process_account(account)
 
