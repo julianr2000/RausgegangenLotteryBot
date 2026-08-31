@@ -98,10 +98,10 @@ def handle_raffles(driver, email):
                 driver.get(event_url)
                 clear_overlays(driver, email)
 
-                # Bereits teilgenommen?
+                # Bereits teilgenommen? (Prüft auf englisch, deutsch und das Emoji)
                 try:
                     WebDriverWait(driver, 3).until(
-                        EC.presence_of_element_located((By.XPATH, "//button[contains(text(), 'You’re in 🤞')]"))
+                        EC.presence_of_element_located((By.XPATH, "//button[contains(@aria-label, 'You’re in') or contains(@aria-label, 'Du bist dabei') or contains(., '🤞')]"))
                     )
                     print(f"     - [{email}] Bereits teilgenommen: {event_url}")
                     continue
