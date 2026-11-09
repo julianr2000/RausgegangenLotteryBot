@@ -69,7 +69,8 @@ def login(driver, email, password):
         print(f"[{email}] Login erfolgreich.")
         return True
     except Exception as e:
-        print(f"[{email}] Login fehlgeschlagen: {e}")
+        print(f"[{email}] Login fehlgeschlagen: Timeout oder Element nicht gefunden.")
+        driver.save_screenshot(f"error_login.png")
         return False
 
 def handle_raffles(driver, email):
