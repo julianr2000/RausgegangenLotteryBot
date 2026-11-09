@@ -22,15 +22,36 @@ def setup_driver(headless=True):
     if headless:
         options.add_argument("--headless=new")
     
-    # Raspberry Pi Spezifische Optimierungen
+    # --- NEU: Bot-Detection Umgehung (Tarnkappe) ---
+    # 1. Täuscht einen normalen Windows-PC vor (entfernt das verräterische "Headless")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    
+    # 2. Versteckt die Tatsache, dass der Browser von einem Skript (Selenium) gesteuert wird
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    options.add_experimental_option('useAutomationExtension', False)
+    # -----------------------------------------------
+    
+    # Proxmox / LXC Spezifische Optimierungen
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--disable-gpu")
     options.add_argument("--window-size=1920,1080")
-    options.add_argument("--blink-settings=imagesEnabled=false") # Spart RAM auf dem Pi/Proxmox
+    options.add_argument("--blink-settings=imagesEnabled=false")
 
     service = ChromeService(executable_path="/usr/bin/chromedriver")
-    return webdriver.Chrome(service=service, options=options)
+    
+    # 3. Führt ein Skript direkt beim Start aus, um navigator.webdriver komplett zu löschen
+    driver = webdriver.Chrome(service=service, options=options)
+    driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+        'source': '''
+            Object.defineProperty(navigator, 'webdriver', {
+              get: () => undefined
+            })
+        '''
+    })
+    
+    return driverSie gaukelt Bunny.net vor, dass hier ein ganz normaler Windows-Nutzer an einem echten Monitor sitzt:
 
 def clear_overlays(driver, email):
     """Schließt Popups wie das Social-Onboarding oder Cookie-Banner."""
@@ -73,7 +94,7 @@ def login(driver, email, password):
         print(f"[{email}] Login fehlgeschlagen: {e}")
         driver.save_screenshot(f"error_login_{email}.png")
         return False
-        
+
 def handle_raffles(driver, email):
     page = 1 
     while True:
