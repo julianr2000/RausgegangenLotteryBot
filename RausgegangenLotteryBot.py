@@ -56,23 +56,24 @@ def login(driver, email, password):
         clear_overlays(driver, email)
         wait = WebDriverWait(driver, 20)
         
-        email_field = wait.until(EC.visibility_of_element_located((By.NAME, 'username')))
-        password_field = driver.find_element(By.NAME, 'password')
+        # Nutzt jetzt die robusten data-testid Attribute der neuen Website
+        email_field = wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@data-testid="login-username-input"]')))
+        password_field = driver.find_element(By.XPATH, '//*[@data-testid="login-password-input"]')
 
         email_field.send_keys(email)
         password_field.send_keys(password)
 
-        login_button = wait.until(EC.element_to_be_clickable((By.XPATH, '//button[@type="submit" and contains(text(), "Login")]')))
+        login_button = wait.until(EC.element_to_be_clickable((By.XPATH, '//*[@data-testid="login-submit-button"]')))
         login_button.click()
         
         WebDriverWait(driver, 30).until(EC.url_to_be("https://rausgegangen.de/en/"))
         print(f"[{email}] Login erfolgreich.")
         return True
     except Exception as e:
-        print(f"[{email}] Login fehlgeschlagen: Timeout oder Element nicht gefunden.")
-        driver.save_screenshot(f"error_login.png")
+        print(f"[{email}] Login fehlgeschlagen: {e}")
+        driver.save_screenshot(f"error_login_{email}.png")
         return False
-
+        
 def handle_raffles(driver, email):
     page = 1 
     while True:
