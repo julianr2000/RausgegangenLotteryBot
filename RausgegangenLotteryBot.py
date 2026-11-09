@@ -51,7 +51,7 @@ def setup_driver(headless=True):
         '''
     })
     
-    return driverSie gaukelt Bunny.net vor, dass hier ein ganz normaler Windows-Nutzer an einem echten Monitor sitzt:
+    return driver
 
 def clear_overlays(driver, email):
     """Schließt Popups wie das Social-Onboarding oder Cookie-Banner."""
